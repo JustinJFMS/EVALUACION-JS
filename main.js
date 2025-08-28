@@ -5,6 +5,8 @@ import { Cart } from "./cart.js";
 let products = [];
 let filteredProducts = [];
 let selectedCategory = "";
+let currentPage = 1;
+let productLimit = 6;
 
 // Instancia del carrito
 const cart = new Cart();
@@ -17,6 +19,7 @@ const sortSelect = document.querySelector('.sort-select');
 const cartButton = document.getElementById('cartButton');
 const cartModal = document.getElementById('cartModal');
 const closeCart = document.getElementById('closeCart');
+const productLimitSelect = document.getElementById("productLimit");
 
 // Función principal para cargar productos
 async function fetchProducts() {
@@ -36,18 +39,73 @@ async function fetchProducts() {
     }
 }
 
-// Renderizar productos
-function renderProducts() {
-    if (filteredProducts.length === 0) {
-        productsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: white; padding: 40px;"><h2>No se encontraron productos</h2><p>Intenta con otros filtros de búsqueda</p></div>';
+function renderProducts(productsToRender = filteredProducts.length ? filteredProducts : products) { 
+    if (productsToRender.length === 0) {
+        productsContainer.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; color: white; padding: 40px;">
+                <h2>No se encontraron productos</h2>
+                <p>Intenta con otros filtros de búsqueda</p>
+            </div>`;
+        document.getElementById("pagination").innerHTML = "";
         return;
     }
 
     productsContainer.innerHTML = '';
-    filteredProducts.forEach(product => {
+    
+    const start = (currentPage - 1) * productLimit;
+    const end = start + productLimit;
+    const pageProducts = productsToRender.slice(start, end);
+
+    pageProducts.forEach(product => {
         const card = ProductCard(product, cart);
+        let favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
+        const favBtn = document.createElement("button");
+        favBtn.dataset.id = product.id;
+        favBtn.textContent = favoritos.includes(String(product.id))
+
         productsContainer.appendChild(card);
     });
+
+    renderPagination(productsToRender.length);
+}
+
+function renderPagination(totalProducts) { 
+    const pagination = document.getElementById("pagination");
+    pagination.innerHTML = "";
+
+    const totalPages = Math.ceil(totalProducts / productLimit);
+
+    // Botón Anterior 
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = "Anterior";
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.onclick = () => {
+        currentPage--;
+        renderProducts(filteredProducts.length ? filteredProducts : products);
+    };
+    pagination.appendChild(prevBtn);
+
+    // Números de página
+    for (let i = 1; i <= totalPages; i++) {
+        const pageBtn = document.createElement("button");
+        pageBtn.textContent = i;
+        if (i === currentPage) pageBtn.disabled = true;
+        pageBtn.onclick = () => {
+            currentPage = i;
+            renderProducts(filteredProducts.length ? filteredProducts : products);
+        };
+        pagination.appendChild(pageBtn);
+    }
+
+    // Botón Siguiente
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = "Siguiente";
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.onclick = () => {
+        currentPage++;
+        renderProducts(filteredProducts.length ? filteredProducts : products);
+    };
+    pagination.appendChild(nextBtn);
 }
 
 // Filtrar productos
@@ -61,6 +119,7 @@ function filterProducts() {
 
         return matchesSearch && matchesCategory;
     });
+
 
     sortProducts();
     renderProducts();
@@ -147,6 +206,14 @@ function showError(message) {
     </div>
 `;
     hideLoading();
+}
+
+if (productLimitSelect) { 
+    productLimitSelect.addEventListener("change", () => {
+        productLimit = parseInt(productLimitSelect.value);
+        currentPage = 1; // volver a la primera página
+        renderProducts(filteredProducts.length ? filteredProducts : products);
+    });
 }
 
 // Inicializar la aplicación
